@@ -1,209 +1,235 @@
 /*
-** Copyright (c) 2015, Gary Grewal
-** Permission to use, copy, modify, and/or distribute this software for
-** any purpose with or without fee is hereby granted, provided that the
-** above copyright notice and this permission notice appear in all copies.
-**
-** THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
-** WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
-** WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR
-** BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES
-** OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-** WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
-** ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
-** SOFTWARE.
+    MIDIUSB-compatible library for the Arduino-Pico core
+    Implements the APIs of the Arduino.cc MIDIUSB library
+    Extends to some of the Adafruit TinyUSB library functions
+
+    Copyright (c) 2025 Earle F. Philhower, III <earlephilhower@yahoo.com>
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
+/*
+   Original API Copyright (c) 2015, Gary Grewal
+   Permission to use, copy, modify, and/or distribute this software for
+   any purpose with or without fee is hereby granted, provided that the
+   above copyright notice and this permission notice appear in all copies.
+
+   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+   WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+   WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR
+   BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES
+   OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+   WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+   ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+   SOFTWARE.
 */
 
 #include "MIDIUSB.h"
-
-#define MIDI_AC_INTERFACE 	pluggedInterface	// MIDI AC Interface
-#define MIDI_INTERFACE 		((uint8_t)(pluggedInterface+1))
-#define MIDI_FIRST_ENDPOINT pluggedEndpoint
-#define MIDI_ENDPOINT_OUT	pluggedEndpoint
-#define MIDI_ENDPOINT_IN	((uint8_t)(pluggedEndpoint+1))
-
-#define MIDI_RX MIDI_ENDPOINT_OUT
-#define MIDI_TX MIDI_ENDPOINT_IN
-
-struct ring_bufferMIDI
-{
-	midiEventPacket_t midiEvent[MIDI_BUFFER_SIZE];
-	volatile uint32_t head;
-	volatile uint32_t tail;
-};
-
-ring_bufferMIDI midi_rx_buffer = {{0,0,0,0 }, 0, 0};
+#include <USB.h>
 
 MIDI_ MidiUSB;
 
-int MIDI_::getInterface(uint8_t* interfaceNum)
-{
-	interfaceNum[0] += 2;	// uses 2 interfaces
-	MIDIDescriptor _midiInterface =
-	{
-		D_IAD(MIDI_AC_INTERFACE, 2, MIDI_AUDIO, MIDI_AUDIO_CONTROL, 0),
-		D_INTERFACE(MIDI_AC_INTERFACE,0,MIDI_AUDIO,MIDI_AUDIO_CONTROL,0),
-		D_AC_INTERFACE(0x1, MIDI_INTERFACE),
-		D_INTERFACE(MIDI_INTERFACE,2, MIDI_AUDIO,MIDI_STREAMING,0),
-		D_AS_INTERFACE,
-		D_MIDI_INJACK(MIDI_JACK_EMD, 0x1),
-		D_MIDI_INJACK(MIDI_JACK_EXT, 0x2),
-		D_MIDI_OUTJACK(MIDI_JACK_EMD, 0x3, 1, 2, 1),
-		D_MIDI_OUTJACK(MIDI_JACK_EXT, 0x4, 1, 1, 1),
-		D_MIDI_JACK_EP(USB_ENDPOINT_OUT(MIDI_ENDPOINT_OUT),USB_ENDPOINT_TYPE_BULK,MIDI_BUFFER_SIZE),
-		D_MIDI_AC_JACK_EP(1, 1),
-		D_MIDI_JACK_EP(USB_ENDPOINT_IN(MIDI_ENDPOINT_IN),USB_ENDPOINT_TYPE_BULK,MIDI_BUFFER_SIZE),
-		D_MIDI_AC_JACK_EP (1, 3)
-	};
-	return USB_SendControl(0, &_midiInterface, sizeof(_midiInterface));
+bool MIDI_::setCableName(uint8_t cable_id, const char *str) {
+    if (!_running || cable_id == 0 || cable_id > sizeof(_cableStrID)) {
+        return false;
+    }
+
+    _cableStrID[cable_id - 1] = USB.registerString(str);
+    return _cableStrID[cable_id - 1] > 0;
 }
 
-bool MIDI_::setup(USBSetup& setup __attribute__((unused)))
-{
-	//Support requests here if needed. Typically these are optional
-	return false;
+void MIDI_::interfaceCB(int itf, uint8_t *dst, int len) {
+    uint8_t desc0[] = {
+        TUD_MIDI_DESC_HEAD((uint8_t)itf, _strID, _cables),
+    };
+    memcpy(dst, desc0, sizeof(desc0));
+    dst += sizeof(desc0);
+
+    for (uint8_t i = 0; i < _cables; i++) {
+        uint8_t desc1[] = {
+            TUD_MIDI_DESC_JACK_DESC(i + 1, _cableStrID[i])
+        };
+        memcpy(dst, desc1, sizeof(desc1));
+        dst += sizeof(desc1);
+    }
+
+    uint8_t desc2[] = {
+        TUD_MIDI_DESC_EP(_epOut, 64, _cables)
+    };
+    memcpy(dst, desc2, sizeof(desc2));
+    dst += sizeof(desc2);
+
+    for (uint8_t i = 0; i < _cables; i++) {
+        uint8_t desc3[] = {
+            TUD_MIDI_JACKID_IN_EMB(i + 1)
+        };
+        memcpy(dst, desc3, sizeof(desc3));
+        dst += sizeof(desc3);
+    }
+
+    uint8_t desc4[] = {
+        TUD_MIDI_DESC_EP(_epIn, 64, _cables)
+    };
+    memcpy(dst, desc4, sizeof(desc4));
+    dst += sizeof(desc4);
+
+    for (uint8_t i = 0; i < _cables; i++) {
+        uint8_t desc5[] = {
+            TUD_MIDI_JACKID_OUT_EMB(i + 1)
+        };
+        memcpy(dst, desc5, sizeof(desc5));
+        dst += sizeof(desc5);
+    }
 }
 
-int MIDI_::getDescriptor(USBSetup& setup __attribute__((unused)))
-{
-	return 0;
+bool MIDI_::setName(const char *name) {
+    if (!_running) {
+        _strID = USB.registerString(name);
+        return  true;
+    }
+    return false;
 }
 
-uint8_t MIDI_::getShortName(char* name)
-{
-	memcpy(name, "MIDI", 4);
-	return 4;
+bool MIDI_::begin() {
+    if (_running) {
+        return false;
+    }
+    USB.disconnect();
+
+    _epIn = USB.registerEndpointIn();
+    _epOut = USB.registerEndpointOut();
+    _strID = !_strID ? USB.registerString("PicoMIDI") : _strID;
+    if (!_cableStrID[0]) {
+        _cableStrID[0] = USB.registerString("virtual-cable");
+    }
+
+    _id = USB.registerInterface(2, _cb, (void *)this, TUD_MIDI_DESC_HEAD_LEN + TUD_MIDI_DESC_JACK_LEN * _cables + 2 * TUD_MIDI_DESC_EP_LEN(_cables), 3, 1 << 16);
+
+    USB.connect();
+
+    _running = true;
+
+    return true;
 }
 
-void MIDI_::accept(void)
-{
-	ring_bufferMIDI *buffer = &midi_rx_buffer;
-	uint32_t i = (uint32_t)(buffer->head+1) % MIDI_BUFFER_SIZE;
-
-	// The USB_Recv() call apparently tosses away available incoming data that isn't fully read
-	// so you must provide it with enough space to prevent dropped MIDI events, because there can be more than one
-	// MIDI packet available per USB_Recv() call.
-	// Here we support up to 8 events per recv (observed hi-rate midi streams can require this,
-	// but it could be bigger with sysex dumps, so this might need to be raised even more)
-	midiEventPacket_t event[8];
-
-	// if we should be storing the received character into the location
-	// just before the tail (meaning that the head would advance to the
-	// current location of the tail), we're about to overflow the buffer
-	// and so we don't write the character or advance the head.
-	while (i != buffer->tail) {
-		int c;
-		if (!USB_Available(MIDI_RX)) {
-#if defined(ARDUINO_ARCH_SAM)
-			udd_ack_fifocon(MIDI_RX);
-#endif
-			break; // appears to be needed now that we have larger possible reads
-		}
-		c = USB_Recv(MIDI_RX, event, sizeof(event) );
-
-		if(c < 4) {
-			return;
-		}
-
-		// each MIDI packet is 4 bytes
-		// but there could be more than one midi packet per receive
-		int pos = 0 ;
-		while (i != buffer->tail && c >= 4) {
-			buffer->midiEvent[buffer->head] = event[pos];
-			buffer->head = i;
-
-			i = (i + 1) % MIDI_BUFFER_SIZE;
-			c -= 4;
-			++pos;
-		}
-	}
+void MIDI_::end() {
+    if (_running) {
+        USB.disconnect();
+        USB.unregisterInterface(_id);
+        USB.unregisterEndpointIn(_epIn);
+        USB.unregisterEndpointOut(_epOut);
+        _running = false;
+        USB.connect();
+    }
 }
 
-uint32_t MIDI_::available(void)
-{
-	
-	ring_bufferMIDI *buffer = &midi_rx_buffer;
-	return (uint32_t)(MIDI_BUFFER_SIZE + buffer->head - buffer->tail) % MIDI_BUFFER_SIZE;
+MIDI_::operator bool() {
+    if (!_running) {
+        begin();
+    }
+    return connected();
 }
 
-
-midiEventPacket_t MIDI_::read(void)
-{
-        midiEventPacket_t c;
-	ring_bufferMIDI   *buffer = &midi_rx_buffer;
-
-	if(((uint32_t)(MIDI_BUFFER_SIZE + buffer->head - buffer->tail) % MIDI_BUFFER_SIZE) > 0) {
-	    c = buffer->midiEvent[buffer->tail];
-	} else {
-            if (USB_Available(MIDI_RX)) {
-	        accept();
-	        c = buffer->midiEvent[buffer->tail];
-	    } else {
-	        c.header = 0;
-	        c.byte1 = 0;
-	        c.byte2 = 0;
-	        c.byte3 = 0;
-	    }
-	}
-	// if the head isn't ahead of the tail, we don't have any characters
-	if (buffer->head != buffer->tail)
-	{
-		buffer->tail = (uint32_t)(buffer->tail + 1) % MIDI_BUFFER_SIZE;
-	}
-	return c;
+bool MIDI_::connected() {
+    if (!_running) {
+        begin();
+    }
+    return _running ? tud_midi_mounted() : false;
 }
 
-void MIDI_::flush(void)
-{
-	USB_Flush(MIDI_TX);
+//int MIDI_::read(void) {
+midi_read_t::operator int() {
+    if (!midi->_running) {
+        midi->begin();
+    }
+    uint8_t ch;
+    if (!midi->_running || !midi->connected()) {
+        return -1;
+    }
+    return tud_midi_stream_read(&ch, 1) ? (int)ch : (-1);
 }
 
-size_t MIDI_::write(const uint8_t *buffer, size_t size)
-{
-	/* only try to send bytes if the high-level MIDI connection itself
-	 is open (not just the pipe) - the OS should set lineState when the port
-	 is opened and clear lineState when the port is closed.
-	 bytes sent before the user opens the connection or after
-	 the connection is closed are lost - just like with a UART. */
-
-	// TODO - ZE - check behavior on different OSes and test what happens if an
-	// open connection isn't broken cleanly (cable is yanked out, host dies
-	// or locks up, or host virtual serial port hangs)
-
-	// first, check the TX buffer to see if it's ready for writing.
-	// USB_Send() may block if there's no one listening on the other end.
-	// in that case, we don't want to block waiting for someone to connect,
-	// because that would freeze the whole sketch
-	// instead, we'll just drop the packets and hope the caller figures it out.
-	if (is_write_enabled(MIDI_TX))
-	{
-
-		int r = USB_Send(MIDI_TX, buffer, size);
-
-		if (r > 0)
-		{
-			return r;
-		} else
-		{
-			return 0;
-		}
-	}
-	return 0;
+size_t MIDI_::write(uint8_t b) {
+    if (!_running) {
+        begin();
+    }
+    return _running && connected() ? tud_midi_stream_write(0, &b, 1) : false;
 }
 
-void MIDI_::sendMIDI(midiEventPacket_t event)
-{
-	uint8_t data[4];
-	data[0] = event.header;
-	data[1] = event.byte1;
-	data[2] = event.byte2;
-	data[3] = event.byte3;
-	write(data, 4);
+int MIDI_::available() {
+    if (!_running) {
+        begin();
+    }
+    return _running && connected() ? tud_midi_available() : 0;
 }
 
-MIDI_::MIDI_(void) : PluggableUSBModule(2, 2, epType)
-{
-	epType[0] = EP_TYPE_BULK_OUT_MIDI;	// MIDI_ENDPOINT_OUT
-	epType[1] = EP_TYPE_BULK_IN_MIDI;		// MIDI_ENDPOINT_IN
-	PluggableUSB().plug(this);
+int MIDI_::peek(void) {
+  return -1;
+}
+
+void MIDI_::flush(void) {
+    // NOOP
+}
+
+bool MIDI_::writePacket(const uint8_t packet[4]) {
+    if (!_running) {
+        begin();
+    }
+    return _running && connected() ? tud_midi_packet_write(packet) : false;
+}
+
+bool MIDI_::readPacket(uint8_t packet[4]) {
+    if (!_running) {
+        begin();
+    }
+    return _running && connected() ? tud_midi_packet_read(packet) : false;
+}
+
+//midiEventPacket_t MIDI_::read() {
+midi_read_t::operator midiEventPacket_t() {
+    if (!midi->_running) {
+        midi->begin();
+    }
+    uint8_t packet[4];
+    if (midi->_running && midi->connected() && midi->readPacket(packet)) {
+        midiEventPacket_t out;
+        out.header = packet[0];
+        out.byte1 = packet[1];
+        out.byte2 = packet[2];
+        out.byte3 = packet[3];
+        return out;
+    }
+    midiEventPacket_t bad = { 0, 0, 0, 0};
+    return bad;
+}
+
+size_t MIDI_::write(const uint8_t *buffer, size_t size) {
+    if (!_running) {
+        begin();
+    }
+    return _running && connected() ? tud_midi_stream_write(1, buffer, size) : 0;
+}
+
+void MIDI_::sendMIDI(midiEventPacket_t event) {
+    if (!_running) {
+        begin();
+    }
+    uint8_t data[4];
+    data[0] = event.header;
+    data[1] = event.byte1;
+    data[2] = event.byte2;
+    data[3] = event.byte3;
+    write(data, 4);
 }
