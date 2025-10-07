@@ -96,11 +96,12 @@
 #define pitchA0  21
 /// Full 88 key range note pitch high to low MIDI byte value mapping array
 const int notePitch[] = {pitchC8,
-                               pitchB7, pitchB7b, pitchA7, pitchA7b, pitchG7, pitchG7b, pitchF7, pitchE7, pitchE7b, pitchD7, pitchD7b, pitchC7,
-                               pitchB6, pitchB6b, pitchA6, pitchA6b, pitchG6, pitchG6b, pitchF6, pitchE6, pitchE6b, pitchD6, pitchD6b, pitchC6,
-                               pitchB5, pitchB5b, pitchA5, pitchA5b, pitchG5, pitchG5b, pitchF5, pitchE5, pitchE5b, pitchD5, pitchD5b, pitchC5,
-                               pitchB4, pitchB4b, pitchA4, pitchA4b, pitchG4, pitchG4b, pitchF4, pitchE4, pitchE4b, pitchD4, pitchD4b, pitchC4,
-                               pitchB3, pitchB3b, pitchA3, pitchA3b, pitchG3, pitchG3b, pitchF3, pitchE3, pitchE3b, pitchD3, pitchD3b, pitchC3,
-                               pitchB2, pitchB2b, pitchA2, pitchA2b, pitchG2, pitchG2b, pitchF2, pitchE2, pitchE2b, pitchD2, pitchD2b, pitchC2,
-                               pitchB1, pitchB1b, pitchA1, pitchA1b, pitchG1, pitchG1b, pitchF1, pitchE1, pitchE1b, pitchD1, pitchD1b, pitchC1,
-                               pitchB0, pitchB0b, pitchA0};
+                         pitchB7, pitchB7b, pitchA7, pitchA7b, pitchG7, pitchG7b, pitchF7, pitchE7, pitchE7b, pitchD7, pitchD7b, pitchC7,
+                         pitchB6, pitchB6b, pitchA6, pitchA6b, pitchG6, pitchG6b, pitchF6, pitchE6, pitchE6b, pitchD6, pitchD6b, pitchC6,
+                         pitchB5, pitchB5b, pitchA5, pitchA5b, pitchG5, pitchG5b, pitchF5, pitchE5, pitchE5b, pitchD5, pitchD5b, pitchC5,
+                         pitchB4, pitchB4b, pitchA4, pitchA4b, pitchG4, pitchG4b, pitchF4, pitchE4, pitchE4b, pitchD4, pitchD4b, pitchC4,
+                         pitchB3, pitchB3b, pitchA3, pitchA3b, pitchG3, pitchG3b, pitchF3, pitchE3, pitchE3b, pitchD3, pitchD3b, pitchC3,
+                         pitchB2, pitchB2b, pitchA2, pitchA2b, pitchG2, pitchG2b, pitchF2, pitchE2, pitchE2b, pitchD2, pitchD2b, pitchC2,
+                         pitchB1, pitchB1b, pitchA1, pitchA1b, pitchG1, pitchG1b, pitchF1, pitchE1, pitchE1b, pitchD1, pitchD1b, pitchC1,
+                         pitchB0, pitchB0b, pitchA0
+                        };

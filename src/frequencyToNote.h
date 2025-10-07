@@ -105,4 +105,5 @@ const float noteFrequency[] = {freqC8,
                                freqB3, freqB3b, freqA3, freqA3b, freqG3, freqG3b, freqF3, freqE3, freqE3b, freqD3, freqD3b, freqC3,
                                freqB2, freqB2b, freqA2, freqA2b, freqG2, freqG2b, freqF2, freqE2, freqE2b, freqD2, freqD2b, freqC2,
                                freqB1, freqB1b, freqA1, freqA1b, freqG1, freqG1b, freqF1, freqE1, freqE1b, freqD1, freqD1b, freqC1,
-                               freqB0, freqB0b, freqA0};
+                               freqB0, freqB0b, freqA0
+                              };
