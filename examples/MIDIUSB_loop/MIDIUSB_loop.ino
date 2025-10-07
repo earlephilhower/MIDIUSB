@@ -1,10 +1,10 @@
 /*
- * MIDIUSB_loop.ino
- *
- * Created: 4/6/2015 10:47:08 AM
- * Author: gurbrinder grewal
- * Modified by Arduino LLC (2015)
- */ 
+   MIDIUSB_loop.ino
+
+   Created: 4/6/2015 10:47:08 AM
+   Author: gurbrinder grewal
+   Modified by Arduino LLC (2015)
+*/
 
 #include "MIDIUSB.h"
 
@@ -21,7 +21,7 @@ void noteOn(byte channel, byte pitch, byte velocity) {
 
 void noteOff(byte channel, byte pitch, byte velocity) {
   midiEventPacket_t noteOff = {0x08, (uint8_t)(0x80 | channel, pitch, velocity};
-  MidiUSB.sendMIDI(noteOff);
+                               MidiUSB.sendMIDI(noteOff);
 }
 
 void setup() {
