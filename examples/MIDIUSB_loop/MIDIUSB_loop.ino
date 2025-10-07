@@ -20,8 +20,8 @@ void noteOn(byte channel, byte pitch, byte velocity) {
 }
 
 void noteOff(byte channel, byte pitch, byte velocity) {
-  midiEventPacket_t noteOff = {0x08, (uint8_t)(0x80 | channel, pitch, velocity};
-                               MidiUSB.sendMIDI(noteOff);
+  midiEventPacket_t noteOff = {0x08, (uint8_t)(0x80 | channel), pitch, velocity};
+  MidiUSB.sendMIDI(noteOff);
 }
 
 void setup() {
