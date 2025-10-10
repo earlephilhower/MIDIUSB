@@ -231,5 +231,5 @@ void MIDI_::sendMIDI(midiEventPacket_t event) {
     data[1] = event.byte1;
     data[2] = event.byte2;
     data[3] = event.byte3;
-    write(data, 4);
+    writePacket(data);
 }
