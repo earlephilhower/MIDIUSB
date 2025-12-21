@@ -37,6 +37,7 @@
 */
 
 #include "MIDIUSB.h"
+#include <tusb-midi.h>
 #include <USB.h>
 
 MIDI_ MidiUSB;
