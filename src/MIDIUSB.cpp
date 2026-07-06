@@ -52,6 +52,7 @@ bool MIDI_::setCableName(uint8_t cable_id, const char *str) {
 }
 
 void MIDI_::interfaceCB(int itf, uint8_t *dst, int len) {
+    (void) len;
     uint8_t desc0[] = {
         TUD_MIDI_DESC_HEAD((uint8_t)itf, _strID, _cables),
     };
